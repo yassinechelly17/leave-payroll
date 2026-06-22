@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: leave_payroll
+      POSTGRES_USER: leave_payroll
+      POSTGRES_PASSWORD: leave_payroll
+    ports:
+      - "5433:5432"
+    volumes:
+      - leave-payroll_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leave_payroll -d leave_payroll"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  leave-payroll_pgdata:
