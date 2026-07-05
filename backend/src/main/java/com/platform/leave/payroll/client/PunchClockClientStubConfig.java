@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
 @Configuration
-@Profile({"local", "test"})
+@Profile({"local", "test", "platform"})
 public class PunchClockClientStubConfig {
 
 	@Bean

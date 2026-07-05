@@ -9,6 +9,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import feign.FeignException;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -29,6 +31,11 @@ public class GlobalExceptionHandler {
 			.map(err -> err.getField() + " " + err.getDefaultMessage())
 			.orElse("Validation failed");
 		return error(HttpStatus.BAD_REQUEST, message);
+	}
+
+	@ExceptionHandler(FeignException.class)
+	ResponseEntity<Map<String, Object>> handleFeign(FeignException ex) {
+		return error(HttpStatus.BAD_GATEWAY, "Attendance service unavailable: " + ex.status());
 	}
 
 	private ResponseEntity<Map<String, Object>> error(HttpStatus status, String message) {

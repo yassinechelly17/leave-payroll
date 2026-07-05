@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 function targetUrl(req: NextRequest, segments: string[]) {
   const path = segments.join("/");
   const search = req.nextUrl.search;
-  return `${backendUrl()}/api/v1/${path}${search}`;
+  return `${backendUrl()}/${path}${search}`;
 }
 
 async function proxy(req: NextRequest, pathSegments: string[]) {
@@ -29,31 +29,38 @@ async function proxy(req: NextRequest, pathSegments: string[]) {
   const accept = req.headers.get("accept");
   if (accept) headers.set("Accept", accept);
 
-  if (method === "GET" || method === "HEAD") {
-    const res = await fetch(url, { method, headers });
+  try {
+    if (method === "GET" || method === "HEAD") {
+      const res = await fetch(url, { method, headers });
+      const out = new Headers();
+      const ct = res.headers.get("content-type");
+      if (ct) out.set("Content-Type", ct);
+      out.set("Cache-Control", "no-store");
+      return new NextResponse(res.body, { status: res.status, headers: out });
+    }
+
+    const ct = req.headers.get("content-type");
+    if (ct) headers.set("Content-Type", ct);
+
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: req.body,
+      // @ts-expect-error duplex required when forwarding a body (Node fetch)
+      duplex: "half",
+    });
+
     const out = new Headers();
-    const ct = res.headers.get("content-type");
-    if (ct) out.set("Content-Type", ct);
+    const outCt = res.headers.get("content-type");
+    if (outCt) out.set("Content-Type", outCt);
     out.set("Cache-Control", "no-store");
     return new NextResponse(res.body, { status: res.status, headers: out });
+  } catch {
+    return NextResponse.json(
+      { error: "backend_unavailable", message: "API gateway or backend is not reachable" },
+      { status: 503 }
+    );
   }
-
-  const ct = req.headers.get("content-type");
-  if (ct) headers.set("Content-Type", ct);
-
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: req.body,
-    // @ts-expect-error duplex required when forwarding a body (Node fetch)
-    duplex: "half",
-  });
-
-  const out = new Headers();
-  const outCt = res.headers.get("content-type");
-  if (outCt) out.set("Content-Type", outCt);
-  out.set("Cache-Control", "no-store");
-  return new NextResponse(res.body, { status: res.status, headers: out });
 }
 
 type Ctx = { params: { path: string[] } };

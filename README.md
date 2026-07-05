@@ -32,7 +32,7 @@ Money amounts are formatted in **EUR** (`en-IE` locale). Platform sidebar can li
 | Variable | Default |
 |----------|---------|
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5433/leave_payroll` |
-| `BACKEND_URL` (frontend) | `http://127.0.0.1:8082` |
+| `BACKEND_URL` (frontend BFF) | `http://127.0.0.1:8082/api/v1` (standalone) or `http://localhost:8090/api/leave` (via gateway) |
 | `LEAVE_PAYROLL_FRONTEND_URL` | `http://localhost:3001` |
 
 ## Pre-push checklist
@@ -45,8 +45,18 @@ Money amounts are formatted in **EUR** (`en-IE` locale). Platform sidebar can li
 
 ```bash
 cd attendance-platform
-COMPOSE_PROFILES=infra,leave-payroll make up
+make up-platform   # COMPOSE_PROFILES=infra,leave-payroll
 ```
+
+Spring profiles:
+
+| Profile | Use | Auth | CORS |
+|---------|-----|------|------|
+| `local` | Standalone dev | permitAll | backend `WebConfig` |
+| `platform` | Full compose stack | permitAll | gateway only | punch-clock **stub** (no OAuth2 yet) |
+| `docker` | Keycloak handoff (later) | JWT roles | backend `WebConfig` | real Feign + OAuth2 |
+
+In Docker, the frontend BFF proxies through the API Gateway (`http://api-gateway:8090/api/leave/**`). Standalone local dev can hit the backend directly via `BACKEND_URL=http://127.0.0.1:8082/api/v1`.
 
 Gateway routes:
 
@@ -65,6 +75,7 @@ git commit -m "Bump leave-payroll"
 ## Auth notes
 
 - **Local dev:** `DEV_BYPASS_AUTH=true` — no login required; backend `local` profile permits all API calls.
+- **Platform compose:** `platform` profile — permit-all, config-server + Eureka, Feign static URL to punch-clock.
 - **Docker / production:** Keycloak JWT validation on backend (`docker` profile). Role-based UI and employee scoping deferred until platform Keycloak is ready.
 
 ## Team workflow
