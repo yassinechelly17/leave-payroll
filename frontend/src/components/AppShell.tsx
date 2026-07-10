@@ -1,8 +1,11 @@
 "use client";
 
+import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 
+import { SignOutButton } from "@/components/AuthButtons";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 const nav = [
@@ -13,7 +16,32 @@ const nav = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { data: session, status } = useSession();
+  const username = session?.preferredUsername ?? session?.user?.name ?? session?.user?.email;
+
+  useEffect(() => {
+    if (session?.error === "RefreshAccessTokenError" || session?.hasAccessToken === false) {
+      void signIn("keycloak", { callbackUrl: "/dashboard" });
+    }
+  }, [session?.error, session?.hasAccessToken]);
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      window.location.replace("/login");
+    }
+  }, [status]);
+
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-zinc-50 text-sm text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400">
+        Loading session…
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return null;
+  }
 
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 md:flex-row">
@@ -42,19 +70,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="mt-auto flex shrink-0 flex-col gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800">
-          <ThemeToggle />
-          <button
-            type="button"
-            onClick={() => {
-              void fetch("/api/session/logout", { method: "POST" }).finally(() => {
-                router.replace("/login");
-                router.refresh();
-              });
-            }}
-            className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          {username ? (
+            <div className="truncate px-1 text-xs text-zinc-500 dark:text-zinc-500">
+              Signed in as{" "}
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">{username}</span>
+            </div>
+          ) : null}
+          <a
+            href="http://localhost:8085"
+            className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-center text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
-            Log out
-          </button>
+            ← Back to hub
+          </a>
+          <ThemeToggle />
+          <SignOutButton />
         </div>
       </aside>
       <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain">

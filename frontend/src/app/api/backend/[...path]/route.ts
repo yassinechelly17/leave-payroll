@@ -1,8 +1,8 @@
-import { cookies } from "next/headers";
+import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
-import { AUTH_COOKIE } from "@/lib/auth-cookie";
-import { backendUrl, devBypassAuth } from "@/lib/serverEnv";
+import { refreshAccessToken } from "@/lib/auth";
+import { backendUrl } from "@/lib/serverEnv";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,18 +14,42 @@ function targetUrl(req: NextRequest, segments: string[]) {
 }
 
 async function proxy(req: NextRequest, pathSegments: string[]) {
-  const token = cookies().get(AUTH_COOKIE)?.value;
-  if (!token && !devBypassAuth()) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  let token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token) {
+    return NextResponse.json(
+      { error: "unauthorized", reason: "no_session" },
+      { status: 401 }
+    );
+  }
+
+  const accessToken = token?.accessToken as string | undefined;
+  const needsRefresh =
+    Boolean(token.refreshToken) &&
+    (!accessToken ||
+      !token.accessTokenExpires ||
+      Date.now() >= (token.accessTokenExpires as number) - 10_000);
+  if (needsRefresh) {
+    token = await refreshAccessToken(token);
+  }
+
+  const refreshedAccessToken = token?.accessToken as string | undefined;
+  if (!refreshedAccessToken || token?.error) {
+    return NextResponse.json(
+      {
+        error: "unauthorized",
+        reason: token?.error === "RefreshAccessTokenError" ? "refresh_failed" : "no_access_token",
+        hasRefreshToken: Boolean(token?.refreshToken),
+        hasAccessToken: Boolean(refreshedAccessToken),
+      },
+      { status: 401 }
+    );
   }
 
   const url = targetUrl(req, pathSegments);
   const method = req.method;
 
   const headers = new Headers();
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
+  headers.set("Authorization", `Bearer ${refreshedAccessToken}`);
   const accept = req.headers.get("accept");
   if (accept) headers.set("Accept", accept);
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import useSWR from "swr";
 
 import { StatCard } from "@/components/ui/StatCard";
@@ -15,13 +16,16 @@ const currentMonth = now.getMonth() + 1;
 const currentYear = now.getFullYear();
 
 export default function DashboardPage() {
+  const { status } = useSession();
+  const ready = status === "authenticated";
+
   const { data: leaves, error: leaveError, isLoading: leavesLoading } = useSWR(
-    "dashboard-leaves",
+    ready ? "dashboard-leaves" : null,
     () => listLeaveRequests()
   );
 
   const { data: payroll, error: payrollError, isLoading: payrollLoading } = useSWR(
-    ["dashboard-payroll", currentMonth, currentYear],
+    ready ? ["dashboard-payroll", currentMonth, currentYear] : null,
     () => listPayrollRecords(currentMonth, currentYear)
   );
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 
+import { Providers } from "@/components/Providers";
 import { themeInitScript } from "@/lib/theme-script";
 
 import "./globals.css";
@@ -34,7 +35,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-[100dvh] bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100`}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
